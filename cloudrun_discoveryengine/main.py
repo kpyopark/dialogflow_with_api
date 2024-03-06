@@ -1,22 +1,32 @@
 # If you encounter an error like 'bdist_wheel' error, try it after to install the wheel package (pip install wheel)
+# You need to set right permissions to the service account for the discovery engine API (Disocvery Engine Viewer) after creating the service account.
+
 from logging import INFO
 from typing import Dict, List
 
 from google.cloud import discoveryengine_v1alpha as discoveryengine
 from google.api_core.client_options import ClientOptions
 
-LOCATION='global'
-PROJECT_ID=''
-DATASTORE_ID=''
-
 from dialogflow_fulfillment import WebhookClient
 from flask import Flask, request
 from flask.logging import create_logger
+from vertexai.language_models import GroundingSource, TextEmbeddingModel
+from dotenv import load_dotenv
 
 # Create Flask app and enable info level logging
+# embedding_model = TextEmbeddingModel.from_pretrained("textembedding-gecko-multilingual@latest")
+
+load_dotenv()
+
 app = Flask(__name__)
 logger = create_logger(app)
 logger.setLevel(INFO)
+
+
+
+LOCATION='global'
+PROJECT_ID=os.getenv('PROJECT_ID') #'<<change your project id>>'
+DATASTORE_ID=os.getenv('DATASTORE_ID') #'<<change your target data store>>'
 
 def search_sample(
     project_id: str,
@@ -57,25 +67,31 @@ def search_sample(
         # https://cloud.google.com/generative-ai-app-builder/docs/get-search-summaries
         summary_spec=discoveryengine.SearchRequest.ContentSearchSpec.SummarySpec(
             summary_result_count=5,
-            include_citations=True,
-            ignore_adversarial_query=True,
-            ignore_non_summary_seeking_query=True,
+            # include_citations=False,
+            # ignore_adversarial_query=False,
+            # ignore_non_summary_seeking_query=False,
         ),
+        # extractive_content_spec=discoveryengine.SearchRequest.ContentSearchSpec.ExtractiveContentSpec(
+        #     max_extractive_answer_count=0,
+        #     max_extractive_segment_count=1,
+        #     return_extractive_segment_score=False,
+        # ),   
     )
-
+    logger.info("Start Searching...")
     # Refer to the `SearchRequest` reference for all supported fields:
     # https://cloud.google.com/python/docs/reference/discoveryengine/latest/google.cloud.discoveryengine_v1.types.SearchRequest
     request = discoveryengine.SearchRequest(
         serving_config=serving_config,
         query=search_query,
-        page_size=10,
+        page_size=1,
         content_search_spec=content_search_spec,
-        query_expansion_spec=discoveryengine.SearchRequest.QueryExpansionSpec(
-            condition=discoveryengine.SearchRequest.QueryExpansionSpec.Condition.AUTO,
-        ),
-        spell_correction_spec=discoveryengine.SearchRequest.SpellCorrectionSpec(
-            mode=discoveryengine.SearchRequest.SpellCorrectionSpec.Mode.AUTO
-        ),
+        # query_expansion_spec=discoveryengine.SearchRequest.QueryExpansionSpec(
+        #     condition=discoveryengine.SearchRequest.QueryExpansionSpec.Condition.AUTO,
+        # ),
+        # spell_correction_spec=discoveryengine.SearchRequest.SpellCorrectionSpec(
+        #     mode=discoveryengine.SearchRequest.SpellCorrectionSpec.Mode.AUTO
+        # ),
+        
     )
 
     response = client.search(request)
@@ -84,8 +100,14 @@ def search_sample(
 def handler(agent: WebhookClient) -> None:
     """Handle the webhook request."""
     logger.info('Dialogflow Request:')
-    logger.info(agent.request)
-    search_list = search_sample(PROJECT_ID, LOCATION, DATASTORE_ID, agent.request.query_result.query_text)
+    logger.info(agent.query)
+    search_response = search_sample(PROJECT_ID, LOCATION, DATASTORE_ID, agent.query)
+    # struct_data = [result.document for result in search_response]
+    # content = [f"{result.document.content}" for result in search_list]
+    # logger.info(struct_data)
+    # #print(content)
+    agent.add(search_response.summary.summary_text)
+    print(search_response.summary)
     # agent.add("Success.")
     
 
