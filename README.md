@@ -11,6 +11,7 @@ RAG 아키텍처는 기본적으로, Ingestion 부터 Retriver를 구성하여�
 Ingestion Pipeline을 간단하게 구성하기 위하여, LangChain을 이용하여 GCS에 올라와 있는, PDF파일을 대상으로 Chunking과 Indexing을 수행하는 방법을 하나 만들어 보자. 
 (이미 많은 Sample이 있기 때문에 이를 참조하였다.)
 
+
 ### Discovery Engine을 이용
 
 Discovery Engine(AI Search)를 이용하면, 기본적으로 GCS에 문서만 등제하면 되기 때문에, Chunking/Indexing 과정 없이 바로 Retrieving을 수행할 수 있다.
